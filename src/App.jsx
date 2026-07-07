@@ -1,0 +1,320 @@
+import { useState, useCallback, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { QUESTIONS, TOTAL_QUESTIONS, FORM_ENDPOINT } from "./data/questions";
+import WelcomeScreen from "./components/WelcomeScreen";
+import YesNoQuestion from "./components/YesNoQuestion";
+import SelectQuestion from "./components/SelectQuestion";
+import ChoiceQuestion from "./components/ChoiceQuestion";
+import TextQuestion from "./components/TextQuestion";
+import ScaleQuestion from "./components/ScaleQuestion";
+import SuccessScreen from "./components/SuccessScreen";
+
+const slideVariants = {
+  enter: (direction) => ({
+    y: direction > 0 ? 80 : -80,
+    opacity: 0,
+  }),
+  center: {
+    y: 0,
+    opacity: 1,
+  },
+  exit: (direction) => ({
+    y: direction > 0 ? -80 : 80,
+    opacity: 0,
+  }),
+};
+
+export default function App() {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [direction, setDirection] = useState(1);
+  const [answers, setAnswers] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitResult, setSubmitResult] = useState(null); // "warm" | "cold" | null
+
+  const currentQ = QUESTIONS[currentIndex];
+  const questionNumber = currentQ?.number || 0;
+  const progress = (questionNumber / TOTAL_QUESTIONS) * 100;
+
+  const updateAnswer = useCallback(
+    (value) => {
+      setAnswers((prev) => ({ ...prev, [currentQ.id]: value }));
+    },
+    [currentQ]
+  );
+
+  const goNext = useCallback(() => {
+    if (currentIndex < QUESTIONS.length - 1) {
+      setDirection(1);
+      setCurrentIndex((i) => i + 1);
+    }
+  }, [currentIndex]);
+
+  const goPrev = useCallback(() => {
+    if (currentIndex > 0) {
+      setDirection(-1);
+      setCurrentIndex((i) => i - 1);
+    }
+  }, [currentIndex]);
+
+  const handleSubmit = useCallback(async () => {
+    setIsSubmitting(true);
+    try {
+      await fetch(FORM_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(answers),
+      });
+    } catch (err) {
+      // Silently handle — the survey is still "complete" from the user's POV.
+      console.warn("Submission error:", err);
+    }
+
+    const q11Answer = answers.q11 || "";
+    const isWarm =
+      q11Answer.startsWith("Take my money") ||
+      q11Answer.startsWith("Sounds great");
+
+    setSubmitResult(isWarm ? "warm" : "cold");
+    setIsSubmitting(false);
+  }, [answers]);
+
+  // Handle the "next" action for the last question (q12 = submit)
+  const handleNext = useCallback(() => {
+    if (currentQ.id === "q12") {
+      handleSubmit();
+    } else {
+      goNext();
+    }
+  }, [currentQ, goNext, handleSubmit]);
+
+  // ─── KEYBOARD NAVIGATION ──────────────────────────────────────────────
+  useEffect(() => {
+    if (submitResult || isSubmitting) return;
+
+    const handleKeyDown = (e) => {
+      // Enter → advance
+      if (e.key === "Enter") {
+        e.preventDefault();
+        // For text/email inputs, the component handles Enter internally
+        if (currentQ.type === "text" || currentQ.type === "email") return;
+
+        if (currentQ.type === "welcome") {
+          goNext();
+          return;
+        }
+        if (currentQ.type === "scale") {
+          handleNext();
+          return;
+        }
+        // For choice/yesno/select — only advance if answered
+        if (answers[currentQ.id]) {
+          handleNext();
+        }
+        return;
+      }
+
+      // Backspace → go back (only if not in a text input)
+      if (e.key === "Backspace" && currentQ.type !== "text" && currentQ.type !== "email") {
+        e.preventDefault();
+        goPrev();
+        return;
+      }
+
+      // Number/letter keys for option selection
+      if (currentQ.type === "yesno") {
+        if (e.key === "1") { updateAnswer("Yes"); setTimeout(goNext, 350); }
+        if (e.key === "2") { updateAnswer("No"); setTimeout(goNext, 350); }
+      }
+
+      if (currentQ.type === "choice") {
+        const idx = e.key.toUpperCase().charCodeAt(0) - 65; // A=0, B=1, ...
+        if (idx >= 0 && idx < currentQ.options.length) {
+          updateAnswer(currentQ.options[idx]);
+          setTimeout(goNext, 350);
+        }
+        // Also support number keys
+        const numIdx = parseInt(e.key) - 1;
+        if (numIdx >= 0 && numIdx < currentQ.options.length) {
+          updateAnswer(currentQ.options[numIdx]);
+          setTimeout(goNext, 350);
+        }
+      }
+
+      if (currentQ.type === "select") {
+        const numIdx = parseInt(e.key) - 1;
+        if (numIdx >= 0 && numIdx < currentQ.options.length) {
+          updateAnswer(currentQ.options[numIdx]);
+          setTimeout(goNext, 400);
+        }
+      }
+
+      if (currentQ.type === "scale") {
+        const num = parseInt(e.key);
+        if (num >= currentQ.min && num <= currentQ.max) {
+          updateAnswer(num);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [currentIndex, currentQ, answers, goNext, goPrev, handleNext, updateAnswer, submitResult, isSubmitting]);
+
+  // ─── RENDER ────────────────────────────────────────────────────────────
+  if (submitResult) {
+    return (
+      <div className="h-full flex items-center justify-center relative">
+        <div className="bg-mesh" />
+        <SuccessScreen isWarmLead={submitResult === "warm"} />
+      </div>
+    );
+  }
+
+  const renderQuestion = () => {
+    switch (currentQ.type) {
+      case "welcome":
+        return <WelcomeScreen data={currentQ} onNext={goNext} />;
+      case "yesno":
+        return (
+          <YesNoQuestion
+            data={currentQ}
+            value={answers[currentQ.id]}
+            onChange={updateAnswer}
+            onNext={goNext}
+          />
+        );
+      case "select":
+        return (
+          <SelectQuestion
+            data={currentQ}
+            value={answers[currentQ.id]}
+            onChange={updateAnswer}
+            onNext={goNext}
+          />
+        );
+      case "choice":
+        return (
+          <ChoiceQuestion
+            data={currentQ}
+            value={answers[currentQ.id]}
+            onChange={updateAnswer}
+            onNext={currentQ.id === "q11" ? goNext : goNext}
+          />
+        );
+      case "text":
+      case "email":
+        return (
+          <TextQuestion
+            data={currentQ}
+            value={answers[currentQ.id]}
+            onChange={updateAnswer}
+            onNext={handleNext}
+          />
+        );
+      case "scale":
+        return (
+          <ScaleQuestion
+            data={currentQ}
+            value={answers[currentQ.id]}
+            onChange={updateAnswer}
+            onNext={goNext}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="h-full flex flex-col relative">
+      {/* Background mesh */}
+      <div className="bg-mesh" />
+
+      {/* Progress bar */}
+      {currentQ.type !== "welcome" && (
+        <div className="progress-bar-track">
+          <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
+        </div>
+      )}
+
+      {/* Main content */}
+      <div className="flex-1 flex flex-col items-center justify-center relative z-10 px-4 sm:px-6">
+        <AnimatePresence mode="wait" custom={direction}>
+          <motion.div
+            key={currentIndex}
+            custom={direction}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            className="w-full max-w-2xl mx-auto"
+          >
+            {/* Question header (not for welcome) */}
+            {currentQ.type !== "welcome" && (
+              <div className="max-w-xl mx-auto mb-8">
+                <motion.div
+                  className="flex items-baseline gap-3 mb-4"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.05 }}
+                >
+                  <span className="text-xs font-semibold text-[var(--color-text-secondary)] tracking-[0.2em] uppercase">
+                    {questionNumber} <span className="opacity-50">/</span> {TOTAL_QUESTIONS}
+                  </span>
+                </motion.div>
+                <motion.h2
+                  className="text-2xl sm:text-3xl md:text-4xl font-medium leading-snug tracking-tight text-[var(--color-text-primary)]"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                >
+                  {currentQ.question}
+                </motion.h2>
+              </div>
+            )}
+
+            {/* Question body */}
+            {renderQuestion()}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* Bottom navigation bar */}
+      {currentQ.type !== "welcome" && (
+        <motion.div
+          className="relative z-10 flex items-center justify-between px-6 py-4 border-t border-[var(--color-border)]/50"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+        >
+          <button
+            id="btn-prev"
+            onClick={goPrev}
+            disabled={currentIndex === 0}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${
+              currentIndex === 0
+                ? "text-[var(--color-text-muted)] cursor-not-allowed"
+                : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-lighter)]"
+            }`}
+          >
+            ← Back
+          </button>
+
+          <div className="flex items-center gap-4">
+            <span className="text-xs text-[var(--color-text-muted)] hidden sm:inline">
+              <span className="kbd">↵</span> Next &nbsp;·&nbsp; <span className="kbd">⌫</span> Back
+            </span>
+
+            {isSubmitting && (
+              <div className="flex items-center gap-2 text-[var(--color-text-secondary)]">
+                <div className="spinner" />
+                <span className="text-sm">Submitting...</span>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+    </div>
+  );
+}
