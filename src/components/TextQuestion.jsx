@@ -10,40 +10,72 @@ export default function TextQuestion({ data, value, onChange, onNext }) {
     return () => clearTimeout(timer);
   }, []);
 
+  const [currency, setCurrency] = useState("₹");
+
   return (
     <div className="w-full max-w-xl mx-auto">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="relative"
+        className="relative flex items-center"
       >
-        <input
-          ref={inputRef}
-          id={`input-${data.id}`}
-          type={data.type === "email" ? "email" : "text"}
-          value={value || ""}
-          onChange={(e) => onChange(e.target.value)}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (value || data.optional)) {
-              onNext();
-            }
-          }}
-          placeholder={data.placeholder}
-          className="w-full bg-transparent border-0 border-b border-[var(--color-border)] text-2xl sm:text-3xl font-light text-[var(--color-text-primary)] py-4 focus:outline-none transition-colors duration-300 placeholder:text-[var(--color-text-muted)]"
-          autoComplete={data.type === "email" ? "email" : "off"}
-        />
-        
-        {/* Animated focus underline */}
-        <motion.div 
-          className="absolute bottom-0 left-0 right-0 h-[1px] bg-[var(--color-text-primary)]"
-          initial={{ scaleX: 0 }}
-          animate={{ scaleX: isFocused ? 1 : 0 }}
-          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          style={{ originX: 0 }}
-        />
+        {data.hasCurrency && (
+          <div className="mr-4 text-2xl sm:text-3xl font-light text-[var(--color-text-secondary)] border-b border-[var(--color-border)] py-4 h-full flex items-center justify-center">
+            <select
+              value={currency}
+              onChange={(e) => {
+                setCurrency(e.target.value);
+                if (value) {
+                  // If they already typed an amount, update the bundled string (we extract the amount part)
+                  const rawAmount = value.replace(/^[^0-9]*/, '').trim();
+                  onChange(`${e.target.value} ${rawAmount}`);
+                }
+              }}
+              className="bg-transparent border-none outline-none cursor-pointer appearance-none text-[var(--color-text-primary)]"
+            >
+              <option value="₹" className="bg-[var(--color-background)] text-[var(--color-text-primary)]">₹</option>
+              <option value="$" className="bg-[var(--color-background)] text-[var(--color-text-primary)]">$</option>
+              <option value="€" className="bg-[var(--color-background)] text-[var(--color-text-primary)]">€</option>
+              <option value="£" className="bg-[var(--color-background)] text-[var(--color-text-primary)]">£</option>
+            </select>
+          </div>
+        )}
+        <div className="relative w-full">
+          <input
+            ref={inputRef}
+            id={`input-${data.id}`}
+            type={data.type === "email" ? "email" : "text"}
+            value={data.hasCurrency ? (value || "").replace(/^[^0-9]*/, '').trim() : (value || "")}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (data.hasCurrency) {
+                onChange(`${currency} ${val}`);
+              } else {
+                onChange(val);
+              }
+            }}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (value || data.optional)) {
+                onNext();
+              }
+            }}
+            placeholder={data.placeholder}
+            className="w-full bg-transparent border-0 border-b border-[var(--color-border)] text-2xl sm:text-3xl font-light text-[var(--color-text-primary)] py-4 focus:outline-none transition-colors duration-300 placeholder:text-[var(--color-text-muted)]"
+            autoComplete={data.type === "email" ? "email" : "off"}
+          />
+          
+          {/* Animated focus underline */}
+          <motion.div 
+            className="absolute bottom-0 left-0 right-0 h-[1px] bg-[var(--color-text-primary)]"
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: isFocused ? 1 : 0 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            style={{ originX: 0 }}
+          />
+        </div>
       </motion.div>
 
       <motion.div

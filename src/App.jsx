@@ -69,18 +69,18 @@ export default function App() {
       console.warn("Submission error:", err);
     }
 
-    const q11Answer = answers.q11 || "";
+    const pitchAnswer = answers.q14 || "";
     const isWarm =
-      q11Answer.startsWith("Take my money") ||
-      q11Answer.startsWith("Sounds great");
+      pitchAnswer.startsWith("Take my money") ||
+      pitchAnswer.startsWith("Sounds great");
 
     setSubmitResult(isWarm ? "warm" : "cold");
     setIsSubmitting(false);
   }, [answers]);
 
-  // Handle the "next" action for the last question (q12 = submit)
+  // Handle the "next" action for the last question (q15 = submit)
   const handleNext = useCallback(() => {
-    if (currentQ.id === "q12") {
+    if (currentQ.id === "q15") {
       handleSubmit();
     } else {
       goNext();
@@ -248,11 +248,11 @@ export default function App() {
             animate="center"
             exit="exit"
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="w-full max-w-2xl mx-auto"
+            className="w-full max-w-4xl mx-auto"
           >
             {/* Question header (not for welcome) */}
             {currentQ.type !== "welcome" && (
-              <div className="max-w-xl mx-auto mb-8">
+              <div className="max-w-2xl mx-auto mb-10">
                 <motion.div
                   className="flex items-baseline gap-3 mb-4"
                   initial={{ opacity: 0, x: -10 }}
@@ -280,39 +280,36 @@ export default function App() {
         </AnimatePresence>
       </div>
 
-      {/* Bottom navigation bar */}
-      {currentQ.type !== "welcome" && (
+      {/* Submitting Overlay */}
+      <AnimatePresence>
+        {isSubmitting && (
+          <motion.div
+            className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[var(--color-background)]/80 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div className="spinner mb-4 scale-150" />
+            <p className="text-[var(--color-text-secondary)] font-medium text-lg">Submitting your response...</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Back Button */}
+      {currentQ.type !== "welcome" && currentIndex > 0 && (
         <motion.div
-          className="relative z-10 flex items-center justify-between px-6 py-4 border-t border-[var(--color-border)]/50"
+          className="absolute top-8 left-8 z-50"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
+          transition={{ delay: 0.2 }}
         >
           <button
             id="btn-prev"
             onClick={goPrev}
-            disabled={currentIndex === 0}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${
-              currentIndex === 0
-                ? "text-[var(--color-text-muted)] cursor-not-allowed"
-                : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-lighter)]"
-            }`}
+            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 cursor-pointer bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-lighter)] hover:scale-[1.02] active:scale-[0.98] shadow-sm"
           >
             ← Back
           </button>
-
-          <div className="flex items-center gap-4">
-            <span className="text-xs text-[var(--color-text-muted)] hidden sm:inline">
-              <span className="kbd">↵</span> Next &nbsp;·&nbsp; <span className="kbd">⌫</span> Back
-            </span>
-
-            {isSubmitting && (
-              <div className="flex items-center gap-2 text-[var(--color-text-secondary)]">
-                <div className="spinner" />
-                <span className="text-sm">Submitting...</span>
-              </div>
-            )}
-          </div>
         </motion.div>
       )}
     </div>

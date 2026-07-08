@@ -83,16 +83,22 @@ export default function SuccessScreen({ isWarmLead }) {
           {isWarmLead ? "You're in." : "Thank You."}
         </motion.h2>
 
-        {/* Body text */}
         <motion.p
-          className="text-base sm:text-lg leading-relaxed text-[var(--color-text-secondary)] font-light max-w-md mx-auto"
+          className="text-base sm:text-lg leading-relaxed text-[var(--color-text-secondary)] font-light max-w-xl mx-auto"
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.6 }}
         >
-          {isWarmLead
-            ? "We're opening Deklo alpha access to a limited cohort of 50 developers this month. We will be in touch via email to set up a quick 15-minute chat to lock in your launch credits and build your migration plan."
-            : "Thanks for the honest feedback. It helps us build a better cloud platform for developers."}
+          {isWarmLead ? (
+            <>
+              Thanks! Your form reward is on the way. <br />
+              <br />
+              <span className="text-[var(--color-text-primary)] font-medium">Want to unlock an extra ₹500 in credits and free premium onboarding?</span><br />
+              Keep an eye on your inbox — we'll be sending you an invite to grab a quick 15-minute slot for an architecture/strategy review soon!
+            </>
+          ) : (
+            "Thanks for the honest feedback. It helps us build a better cloud platform for developers."
+          )}
         </motion.p>
 
         {/* Deklo branding */}
