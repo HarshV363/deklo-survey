@@ -45,7 +45,7 @@ export default function SuccessScreen({ isWarmLead }) {
 
   return (
     <>
-      {showConfetti && isWarmLead && <Confetti />}
+      {showConfetti && <Confetti />}
       <motion.div
         className="flex flex-col items-center justify-center text-center max-w-xl mx-auto px-6"
         initial={{ opacity: 0, y: 20, filter: "blur(5px)" }}
@@ -103,13 +103,26 @@ export default function SuccessScreen({ isWarmLead }) {
 
         {/* Deklo branding */}
         <motion.div
-          className="mt-12 flex items-center gap-2 text-xs text-[var(--color-text-muted)] tracking-widest uppercase font-medium"
+          className="mt-16 flex justify-center"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.7, duration: 0.8 }}
         >
-          <span>Powered by</span>
-          <span className="text-[var(--color-text-primary)]">Deklo</span>
+          <a 
+            href="https://deklo-ui-info.vercel.app/" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="flex flex-col items-center gap-3 group cursor-pointer"
+          >
+            <img 
+              src="./logo.png" 
+              alt="Deklo." 
+              className="h-12 object-contain opacity-70 group-hover:opacity-100 transition-all duration-300 invert brightness-0 group-hover:scale-105" 
+            />
+            <span className="text-xs text-[var(--color-text-muted)] font-medium tracking-wide group-hover:text-[var(--color-text-primary)] transition-colors duration-300 uppercase">
+              Want to know more?
+            </span>
+          </a>
         </motion.div>
       </motion.div>
     </>

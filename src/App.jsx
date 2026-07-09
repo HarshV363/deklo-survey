@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { QUESTIONS, TOTAL_QUESTIONS, FORM_ENDPOINT } from "./data/questions";
+import { CLOUD_QUESTIONS, NODE_QUESTIONS, FORM_ENDPOINT } from "./data/questions";
 import WelcomeScreen from "./components/WelcomeScreen";
 import YesNoQuestion from "./components/YesNoQuestion";
 import SelectQuestion from "./components/SelectQuestion";
@@ -31,6 +31,11 @@ export default function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState(null); // "warm" | "cold" | null
 
+  const [surveyType, setSurveyType] = useState(null); // 'cloud' or 'node'
+
+  const QUESTIONS = surveyType === "node" ? NODE_QUESTIONS : CLOUD_QUESTIONS;
+  const TOTAL_QUESTIONS = QUESTIONS.filter((q) => q.type !== "welcome").length;
+
   const currentQ = QUESTIONS[currentIndex];
   const questionNumber = currentQ?.number || 0;
   const progress = (questionNumber / TOTAL_QUESTIONS) * 100;
@@ -47,7 +52,7 @@ export default function App() {
       setDirection(1);
       setCurrentIndex((i) => i + 1);
     }
-  }, [currentIndex]);
+  }, [currentIndex, QUESTIONS.length]);
 
   const goPrev = useCallback(() => {
     if (currentIndex > 0) {
@@ -59,24 +64,44 @@ export default function App() {
   const handleSubmit = useCallback(async () => {
     setIsSubmitting(true);
     try {
+      const formattedAnswers = {};
+      for (const [key, value] of Object.entries(answers)) {
+        const qObj = QUESTIONS.find((q) => q.id === key);
+        if (qObj && qObj.question) {
+          formattedAnswers[key] = `Q: ${qObj.question}\nA: ${value}`;
+        } else {
+          formattedAnswers[key] = value;
+        }
+      }
+
+      const payload = { surveyType, ...formattedAnswers };
+      
+      const formBody = [];
+      for (const property in payload) {
+        const encodedKey = encodeURIComponent(property);
+        const encodedValue = encodeURIComponent(payload[property]);
+        formBody.push(encodedKey + "=" + encodedValue);
+      }
+      
       await fetch(FORM_ENDPOINT, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify(answers),
+        mode: "no-cors",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formBody.join("&"),
       });
     } catch (err) {
-      // Silently handle — the survey is still "complete" from the user's POV.
       console.warn("Submission error:", err);
     }
 
     const pitchAnswer = answers.q14 || "";
     const isWarm =
       pitchAnswer.startsWith("Take my money") ||
-      pitchAnswer.startsWith("Sounds great");
+      pitchAnswer.startsWith("Sounds great") ||
+      surveyType === "node";
 
     setSubmitResult(isWarm ? "warm" : "cold");
     setIsSubmitting(false);
-  }, [answers]);
+  }, [answers, surveyType]);
 
   // Handle the "next" action for the last question (q15 = submit)
   const handleNext = useCallback(() => {
@@ -86,6 +111,11 @@ export default function App() {
       goNext();
     }
   }, [currentQ, goNext, handleSubmit]);
+
+  const handleWelcomeNext = useCallback((type) => {
+    setSurveyType(type);
+    goNext();
+  }, [goNext]);
 
   // ─── KEYBOARD NAVIGATION ──────────────────────────────────────────────
   useEffect(() => {
@@ -99,7 +129,7 @@ export default function App() {
         if (currentQ.type === "text" || currentQ.type === "email") return;
 
         if (currentQ.type === "welcome") {
-          goNext();
+          // Do nothing on Enter for welcome screen now since we need a choice
           return;
         }
         if (currentQ.type === "scale") {
@@ -158,7 +188,7 @@ export default function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentIndex, currentQ, answers, goNext, goPrev, handleNext, updateAnswer, submitResult, isSubmitting]);
+  }, [currentIndex, currentQ, answers, goNext, goPrev, handleNext, updateAnswer, submitResult, isSubmitting, QUESTIONS]);
 
   // ─── RENDER ────────────────────────────────────────────────────────────
   if (submitResult) {
@@ -173,7 +203,7 @@ export default function App() {
   const renderQuestion = () => {
     switch (currentQ.type) {
       case "welcome":
-        return <WelcomeScreen data={currentQ} onNext={goNext} />;
+        return <WelcomeScreen data={currentQ} onNext={handleWelcomeNext} />;
       case "yesno":
         return (
           <YesNoQuestion
@@ -229,6 +259,18 @@ export default function App() {
     <div className="h-full flex flex-col relative">
       {/* Background mesh */}
       <div className="bg-mesh" />
+
+      {/* Global Persistent Logo */}
+      {currentQ.type !== "welcome" && !submitResult && (
+        <motion.div 
+          className="absolute top-8 left-1/2 -translate-x-1/2 z-40 opacity-30 pointer-events-none"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 0.3, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <img src="./logo.png" alt="Deklo" className="h-8 object-contain invert brightness-0" />
+        </motion.div>
+      )}
 
       {/* Progress bar */}
       {currentQ.type !== "welcome" && (

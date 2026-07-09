@@ -59,6 +59,8 @@ export default function TextQuestion({ data, value, onChange, onNext }) {
             onBlur={() => setIsFocused(false)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && (value || data.optional)) {
+                e.preventDefault();
+                e.stopPropagation();
                 onNext();
               }
             }}
